@@ -11,7 +11,7 @@ pkdf5 <- pkdf4 |>
                     EVID == 0 & ATFD < 0 & is.na(DV) ~ 2,
                     EVID == 0 & ATFD > 0 & is.na(DV) ~ 1),
     LLOQ = NA,
-    STUDY = "STUDY-NAME-CHANGED",
+    STUDY = "NEW_STUDY_NAME", # changing this per Wes's feedback
     IMPDOS = 0,
     DOSEA = AMT[first(which(EVID == 1))],
     CFLAG = 100
