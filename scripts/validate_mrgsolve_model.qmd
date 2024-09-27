@@ -1,0 +1,98 @@
+```{r}
+set.seed(20240531)
+mrg_test_raw <- mrgsim(my_model,
+		       data = validation_data,
+		       etasrc = "data.all",
+		       obsonly = TRUE)
+```
+
+```{r}
+# Post-process mrgsim output
+mrg_test1 <- mrg_test_raw |>
+  as.data.frame() |>
+  pivot_longer(cols = c(IPRED, CL, VC, Q1, VP1, Q2, VP2)) |>
+  mutate(SOURCE = "mrgsolve") |>
+  select(USUBJID, TIME, SOURCE, PARAM = name, value)
+
+# NONMEM predictions of the same values
+nm_preds <- nm_output |>
+  filter(EVID == 0) |>
+  pivot_longer(cols = c(IPRED, CL, VC, Q1, VP1, Q2, VP2)) |>
+  mutate(SOURCE = "NONMEM") |>
+  select(USUBJID, TIME, SOURCE, PARAM = name, value)
+
+# Merge mrgsolve and NONMEM predictions
+mrg_test <- bind_rows(mrg_test1, nm_preds) |>
+  pivot_wider(id_cols = c(USUBJID, TIME, PARAM), names_from = SOURCE)
+```
+
+```{r}
+# Plot the comparison
+ggplot(data = mrg_test, aes(x = NONMEM, y = mrgsolve)) +
+  geom_abline(aes(color = "red", slope = 1, intercept = 0), 
+              key_glyph = "abline") +
+  geom_point(size = 0.7) +
+  facet_wrap(vars(PARAM), scales = "free") +
+  theme(legend.position = "bottom",
+        legend.direction = "horizontal") +
+  scale_color_identity(guide = "legend", name = NULL,
+                       breaks = c("red"),
+                       labels = c("y = x reference line"))
+```
+
+```{r}
+mrg_test_ipred <- mrg_test |>
+  filter(PARAM == "IPRED") |>
+  mutate(ABSDIFF = abs(mrgsolve - NONMEM),
+         PCTDIFF = 100*(ABSDIFF/NONMEM))
+
+mrg_test_ipred |>
+  arrange(desc(ABSDIFF)) |>
+  head() |>
+  flextable()
+
+mrg_test_ipred |>
+  ggplot(aes(y = ABSDIFF)) +
+  geom_boxplot()
+  
+
+# Discard records that could have large relative differences but minuscule abs diffs
+mrg_test_ipred_reldiffs <- mrg_test_ipred |> 
+  filter(mrgsolve > 1E-5 | NONMEM > 1E-5)
+
+mrg_test_ipred_reldiffs |>
+  arrange(desc(PCTDIFF)) |>
+  head() |>
+  flextable()
+
+mrg_test_ipred_reldiffs |>
+  ggplot(aes(y = PCTDIFF)) +
+  geom_boxplot()
+```
+
+```{r}
+dose_data <- filter(validation_data, EVID == 1)
+new_test <- mrgsim(my_model, 
+                   data = dose_data, 
+                   tgrid = tgrid(start = 0, end = 500, delta = 0.05),
+                   etasrc = "data.all",
+                   obsonly = TRUE)
+                   
+new_test |>
+  as.data.frame() |>
+  filter(ID %in% c(1:5)) |>
+  ggplot(aes(x = TIME, y = IPRED, color = as.factor(ID), group = as.factor(ID))) +
+  geom_line()
+```
+
+```{r}
+nm_res <- nm_output |>
+  select(IRES)
+mrg_res <- mrg_test_raw |>
+  mutate(IRES = log(DV) - log(IPRED))
+
+ggplot(nm_res, aes(x = IRES)) +
+  geom_histogram(aes(y = after_stat(density)), binwidth = 0.1, color = "white") +
+  geom_density(data = mrg_res, color = "blue", linetype = "dashed")
+```
+

@@ -1,0 +1,106 @@
+$PROBLEM Project Placeholder
+$ABBR DERIV2=NO
+$INPUT ID TIME AMT EVID DV
+$DATA HPA_Axis_Sim_Data.csv
+IGNORE=@
+
+$SUBROUTINE
+ADVAN6 TOL=9
+
+$MODEL
+COMP=(DUMMY)
+COMP=(CRH)
+COMP=(ACTH)
+COMP=(CORT)
+
+$PK
+V1 = THETA(1)*EXP(ETA(1))
+V2 = THETA(2)*EXP(ETA(2))
+V3 = THETA(3)*EXP(ETA(3))
+AM0 = THETA(4)
+AM1 = THETA(5)
+AM2 = THETA(6)
+MU = THETA(7)
+AM3 = THETA(8)
+AM4 = THETA(9)
+AM5 = THETA(10)
+ELM1 = THETA(11)
+ELM2 = THETA(12)
+ELM3 = THETA(13)
+DELTA = THETA(14)
+ALPHA = THETA(15)
+K = THETA(16)
+BETA = THETA(17)
+L = THETA(18)
+E = THETA(19)
+NC = THETA(20)
+
+A_0(2) = 1
+A_0(3) = 15
+A_0(4) = 2
+
+;IF (TIME.LT.861) TM = (TIME - DELTA) + 1440
+;IF (TIME.GE.861) TM = TIME - DELTA
+
+;IF (TIME.LT.861) TM = ((TIME - DELTA) - 1440*INT((TIME - DELTA)/1440)) + 1440
+;IF (TIME.GE.861) TM = ((TIME - DELTA) - 1440*INT((TIME - DELTA)/1440))
+
+TM = (TIME - DELTA) - 1440*FLOOR((TIME - DELTA)/1440)
+
+
+;DADT(2) = AM0 + (NC*((ABS(((T - DELTA) - 1440*INT((T - DELTA)/1440)))**K/(ABS(((T - DELTA) - 1440*INT((T - DELTA)/1440)))**K + ALPHA**K))*((1440 - ABS(((T - DELTA) - 1440*INT((T - DELTA)/1440))))**L/((1440 - ABS(((T - DELTA) - 1440*INT((T - DELTA)/1440))))**L + BETA**L)) + E))*((EXP(AM1)/(1 + EXP(AM2)*A(3)*A(3)))*(A(1)/(MU + A(1)))) - ELM1*A(1)
+; C(t) = (NC*( (TM**K/(TM**K + ALPHA^K))*((1440-TM)**L/((1440-TM)**L+BETA**L)) + E))
+; x mod y = x-y*INT(x/y)
+
+$DES
+DADT(1) = 0
+;DADT(2) = AM0 + (NC*(TM**K/(TM**K + ALPHA**K))*((1440 - TM)**L/((1440 - TM)**L + BETA**L)) + E)*((EXP(AM1)/(1 + EXP(AM2)*A(4)*A(4)))*(A(2)/(MU + A(2)))) - ELM1*A(2)
+DADT(2)  = AM0 + (NC*((TM**K/(TM**K + ALPHA**K))*((1440 - TM)**L/((1440 - TM)**L + BETA**L)) + E))*(EXP(AM1)/(1 + EXP(AM2)*A(4)*A(4)))*(A(2)/(MU + A(2))) - ELM1*A(2)
+DADT(3) = AM3*A(2)/(1 + AM4*A(4)) - ELM2*A(3)
+DADT(4) = AM5*A(3)*A(3) - ELM3*A(4)
+
+
+$THETA
+1 FIX ;V1 L
+1 FIX ;V2 L
+1 FIX ;V3 L
+4.71E-02 FIX  ;1 AM0 (pg/(mL*min))
+29.55381 FIX   ;2 AM1 (pg/(mL*min))
+21.29988 FIX   ;3 AM2 ((dL/micro g)^2)
+583 FIX       ;4 MU (pg/mL)
+2.28E04 FIX   ;5 AM3 (min^(-1))
+1.77E05 FIX   ;6 AM4 (dL/micro g)
+3.81E-04 FIX  ;7 AM5 ((micro g/dL)/(min(pg/mL)^2))
+4.49E-02 FIX  ;8 ELM1 (min^(-1))
+2.25E-02 FIX  ;9 ELM2 (min^(-1))
+2.01E-02 FIX  ;10 ELM3 (min^(-1))
+8.61E02 FIX   ;11 DELTA (min)
+300 FIX       ;12 ALPHA (min)
+5 FIX         ;13 K
+950 FIX       ;14 BETA (min)
+6 FIX         ;15 L
+0.01 FIX      ;16 E
+0.5217 FIX    ;17 NC
+
+$OMEGA
+0 FIX
+0 FIX
+0 FIX
+
+$SIGMA
+0 FIX
+0 FIX
+
+$ERROR (OBSERVATION ONLY)
+CP1 = A(1)
+CP2 = A(2)
+CP3 = A(3)
+CP4 = A(4)
+IPRED = CP1
+Y=IPRED*(1+EPS(1)) + EPS(2)
+
+
+$SIM (04042023)  ONLYSIM SUBPROBLEMS = 1
+
+$TABLE ID TIME CP2 CP3 CP4
+NOPRINT NOAPPEND NOHEADER FILE=sim.tab FORMAT = s1PE12.5
